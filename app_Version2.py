@@ -1,64 +1,45 @@
-import os
-from flask import Flask, render_template, request, send_from_directory
+import streamlit as st
 import cv2
 import numpy as np
+from PIL import Image
 from skimage.feature import graycomatrix, graycoprops
 
-app = Flask(__name__)
-UPLOAD_FOLDER = 'static/uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+st.title("🖼️ Pengolahan Citra Daun (Preprocessing - Segmentasi - Ekstraksi Ciri)")
 
-def preprocess(img):
-    # Preprocessing: grayscale & Gaussian blur
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5,5), 0)
-    return blur
+uploaded_file = st.file_uploader("Upload gambar daun", type=["jpg", "png"])
+if uploaded_file:
+    image = Image.open(uploaded_file)
+else:
+    image = Image.open("daun.jpg")
 
-def segment(img):
-    # Segmentasi: Otsu thresholding
-    _, mask = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    return mask
+# Tampilkan gambar asli
+st.subheader("1. Gambar Asli")
+st.image(image, use_column_width=True)
 
-def extract_features(img):
-    # Ekstraksi ciri: Haralick (GLCM)
-    glcm = graycomatrix(img, [1], [0], symmetric=True, normed=True)
-    contrast = graycoprops(glcm, 'contrast')[0,0]
-    homogeneity = graycoprops(glcm, 'homogeneity')[0,0]
-    return f"Contrast: {contrast:.2f}, Homogeneity: {homogeneity:.2f}"
+# Preprocessing
+st.subheader("2. Preprocessing")
+img_array = np.array(image)
+gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+gray = cv2.equalizeHist(gray)
+blurred = cv2.medianBlur(gray, 5)
+st.image(blurred, caption="Grayscale + Kontras + Filter", use_column_width=True)
 
-@app.route('/', methods=['GET'])
-def index():
-    return render_template('index.html')
+# Segmentasi
+st.subheader("3. Segmentasi (Threshold)")
+_, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+st.image(binary, caption="Hasil Segmentasi", use_column_width=True)
 
-@app.route('/upload', methods=['POST'])
-def upload():
-    file = request.files['image']
-    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(filepath)
+# Ekstraksi Ciri (GLCM)
+st.subheader("4. Ekstraksi Ciri (GLCM)")
+glcm = graycomatrix(blurred, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+contrast = graycoprops(glcm, 'contrast')[0, 0]
+correlation = graycoprops(glcm, 'correlation')[0, 0]
+energy = graycoprops(glcm, 'energy')[0, 0]
+homogeneity = graycoprops(glcm, 'homogeneity')[0, 0]
 
-    img = cv2.imread(filepath)
-
-    preprocessed = preprocess(img)
-    segmented = segment(preprocessed)
-    features = extract_features(preprocessed)
-
-    # Save processed images
-    pre_path = os.path.join(UPLOAD_FOLDER, 'pre_'+file.filename)
-    seg_path = os.path.join(UPLOAD_FOLDER, 'seg_'+file.filename)
-    cv2.imwrite(pre_path, preprocessed)
-    cv2.imwrite(seg_path, segmented)
-
-    result = {
-        'original': filepath,
-        'preprocessed': pre_path,
-        'segmented': seg_path,
-        'features': features
-    }
-    return render_template('index.html', result=result)
-
-@app.route('/static/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
-if __name__ == '__main__':
-    app.run(debug=True)
+st.markdown(f"""
+- **Contrast**: `{contrast:.4f}`  
+- **Correlation**: `{correlation:.4f}`  
+- **Energy**: `{energy:.4f}`  
+- **Homogeneity**: `{homogeneity:.4f}`
+""")
