@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pengolahan Citra</title>
+</head>
+<body>
+    <h1>Aplikasi Pengolahan Citra</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="image" accept="image/*" required>
+        <button type="submit">Upload & Proses</button>
+    </form>
+    {% if result %}
+        <h2>Hasil:</h2>
+        <div>
+            <p>Original:</p>
+            <img src="{{ result['original'] }}" width="200">
+        </div>
+        <div>
+            <p>Preprocessing (Grayscale + Blur):</p>
+            <img src="{{ result['preprocessed'] }}" width="200">
+        </div>
+        <div>
+            <p>Segmentasi (Otsu Threshold):</p>
+            <img src="{{ result['segmented'] }}" width="200">
+        </div>
+        <p><strong>Ciri Ekstraksi:</strong> {{ result['features'] }}</p>
+    {% endif %}
+</body>
+</html>
